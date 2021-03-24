@@ -29,11 +29,16 @@ const CreateButton = ({copy}) => {
 
 const ToolTip = ({copy, children}) => {
 
-	const [dimensions, setDimensions] = useState({left: null, top: null})
+	const [toolTipDimensions, setToolTipDimensions] = useState({left: null, top: null})
+	const [arrowDimensions, setArrowDimensions] = useState({left: null, top: null})
 	const [showToolTip, setShowToolTip] = useState(false)
 	const toolTipRef = createRef();
 	const containerRef = createRef();
 	
+	const consoleLog = () => {
+		console.log('test')
+	}
+
 	const GetToolTipDimensions = () => {
 		// left, top, right, bottom, x, y, width, and height
 		if(showToolTip) {
@@ -53,11 +58,14 @@ const ToolTip = ({copy, children}) => {
 	}
 
 	const CalculateToolTipCentering = (referenceElement, toolTipReference) => {
-		const referenceElementHeight = referenceElement().height
-		const referenceToolTipeHeight = toolTipReference().height
-		return (  referenceElementHeight / 2 ) - (  referenceToolTipeHeight / 2)
+		const referenceElementHeight = typeof referenceElement === 'function' ? referenceElement().height : referenceElement.height
+		const referenceToolTipHeight = typeof toolTipReference === 'function' ? toolTipReference().height : toolTipReference.height
+
+		return ((  referenceElementHeight / 2 ) - (  referenceToolTipHeight / 2))
 	}
 
+	const ToolTipArrowSize = 10;
+	const ToolTipColor = '#e6e6e6';
 
 	const ToolTipWrapperStyles={
 		position: 'relative'
@@ -65,11 +73,28 @@ const ToolTip = ({copy, children}) => {
 
 	const ToolTipStyles = {
 		padding: 7,
-    background: '#e6e6e6',
-    border: '1px solid grey',
+    background: ToolTipColor,
 		position: 'absolute',
-		left:  dimensions.left ? dimensions.left + 10 : "initial",
-		top:  dimensions.top ? dimensions.top : "initial"
+		left:  toolTipDimensions.left ? toolTipDimensions.left + 10 : "initial",
+		top:  toolTipDimensions.top ? toolTipDimensions.top : "initial",
+		zIndex: 1,
+		opacity: showToolTip ? 1 : 0
+	}
+	
+
+	const ToolTipArrowStyles = {
+		content: '',
+		position: 'absolute',
+		left: 0,
+		width: 0,
+		height: 0,
+		zIndex: 2,
+		left:  arrowDimensions.left ? arrowDimensions.left : "initial",
+		top:  arrowDimensions.top ? arrowDimensions.top : "initial",
+		borderTop: `${ToolTipArrowSize/2}px solid transparent`,
+    borderBottom: `${ToolTipArrowSize/2}px solid transparent`,
+    borderRight: `${ToolTipArrowSize}px solid ${ToolTipColor}`,
+		opacity: showToolTip ? 1 : 0
 	}
 
 	const onMouseEnterEvt = () => {
@@ -81,21 +106,33 @@ const ToolTip = ({copy, children}) => {
 	}
 
 	useEffect(() => {
-		setDimensions({ 
+		setToolTipDimensions({ 
 			left: showToolTip ? GetButtonDimensions().width : null, 
 			top: showToolTip ? CalculateToolTipCentering(GetButtonDimensions, GetToolTipDimensions) : null
 		})
+
+		console.log(CalculateToolTipCentering(GetButtonDimensions, {height: ToolTipArrowSize, width: ToolTipArrowSize}))
+
+		setArrowDimensions({ 
+			left: showToolTip ? GetButtonDimensions().width : null, 
+			top: showToolTip ? CalculateToolTipCentering(GetButtonDimensions, {height: ToolTipArrowSize, width: ToolTipArrowSize}) : null
+		})
+
 	}, [ showToolTip ])
 
 	return(
 		<Fragment>
+			{/* <div style={ToolTipWrapperStyles} ref={containerRef} onMouseEnter={consoleLog} onMouseLeave={consoleLog}> */}
 			<div style={ToolTipWrapperStyles} ref={containerRef} onMouseEnter={onMouseEnterEvt} onMouseLeave={onMouseLeaveEvt}>
 				{ children }
 				{
 					showToolTip ? 
-					<div style={ToolTipStyles} ref={toolTipRef}>
-						{ copy }
-					</div>  : null
+					<Fragment>
+						<div style={ToolTipStyles} ref={toolTipRef}>
+							{ copy }
+						</div>
+						<div style={ToolTipArrowStyles} />
+					</Fragment> : null
 				}
 			</div>
 		</Fragment>
