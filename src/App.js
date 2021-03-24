@@ -1,9 +1,10 @@
-import React, { Fragment, useState, useEffect, useReducer, createRef } from 'react'
+import React, { Fragment, useState, useEffect, useReducer, createRef, Children, cloneElement } from 'react'
 
 // import logo from './logo.svg';
 import './App.css';
 
 const CreateButton = ({copy}) => {
+	const buttonRef = createRef();
 	const ButtonStyles = {
 		display: 'flex',
     flexFlow: 'row',
@@ -13,13 +14,13 @@ const CreateButton = ({copy}) => {
     border: '1px solid',
     lineHeight: '20px',
     backgroundColor: '#e8e8ff',
-		position: 'relative'
+		flex: 'auto',
 	}
 
 	return(
 		<Fragment>
-			<a style={ButtonStyles}>
-				<span>
+			<a style={ButtonStyles} ref={buttonRef}>
+				<span style={{pointerEvents: 'none'}}>
 					{ copy }
 				</span>
 			</a>
@@ -29,6 +30,7 @@ const CreateButton = ({copy}) => {
 
 const ToolTip = ({copy, children}) => {
 
+	const [buttonDimensions, setButtonDimensions] = useState({left: null, top: null})
 	const [toolTipDimensions, setToolTipDimensions] = useState({left: null, top: null})
 	const [arrowDimensions, setArrowDimensions] = useState({left: null, top: null})
 	const [showToolTip, setShowToolTip] = useState(false)
@@ -43,25 +45,42 @@ const ToolTip = ({copy, children}) => {
 		// left, top, right, bottom, x, y, width, and height
 		if(showToolTip) {
 			const dimensions = toolTipRef.current.getBoundingClientRect();
-			const { width, height } = dimensions;
-			return { width, height };
+			const { width, height, top, left, bottom, right } = dimensions;
+			return { width, height, top, left, bottom, right };
+
 		} else {
 			return {}
 		}
 	}
 
-	const GetButtonDimensions = () => {
+	const GetContainerDimensions = () => {
 		// left, top, right, bottom, x, y, width, and height
 		const dimensions = containerRef.current.getBoundingClientRect();
-		const { width, height } = dimensions;
-		return { width, height };
+		const { width, height, top, left, bottom, right } = dimensions;
+		return { width, height, top, left, bottom, right };
 	}
 
-	const CalculateToolTipCentering = (referenceElement, toolTipReference) => {
+	const GetButtonDimensions = (element) => {
+		// left, top, right, bottom, x, y, width, and height
+		const dimensions = element.getBoundingClientRect();
+		const { width, height, top, left, bottom, right } = dimensions;
+		return { width, height, top, left, bottom, right };
+	}
+
+	const CalculateToolTipCentering = (referenceElement, toolTipReference, leftOffest) => {
 		const referenceElementHeight = typeof referenceElement === 'function' ? referenceElement().height : referenceElement.height
 		const referenceToolTipHeight = typeof toolTipReference === 'function' ? toolTipReference().height : toolTipReference.height
+		const referenceToolTipLeft = typeof toolTipReference === 'function' ? toolTipReference().left : toolTipReference.left
+		const referenceToolTipRight = typeof toolTipReference === 'function' ? toolTipReference().right : toolTipReference.right
+		const referenceToolTipWidth = typeof toolTipReference === 'function' ? toolTipReference().width : toolTipReference.width
+		const referenceElementTop = typeof referenceElement === 'function' ? referenceElement().top : referenceElement.top
 
-		return ((  referenceElementHeight / 2 ) - (  referenceToolTipHeight / 2))
+		const getTopOffset = referenceElementTop + ((  referenceElementHeight / 2 ) - (  referenceToolTipHeight / 2))
+		const getLeftOffset = referenceToolTipRight + leftOffest + referenceToolTipWidth
+		return {
+			top: getTopOffset,
+			left: getLeftOffset
+		}
 	}
 
 	const ToolTipArrowSize = 10;
@@ -97,34 +116,36 @@ const ToolTip = ({copy, children}) => {
 		opacity: showToolTip ? 1 : 0
 	}
 
-	const onMouseEnterEvt = () => {
+	const onMouseEnterEvt = (evt) => {
 		setShowToolTip(true)
+		setButtonDimensions(GetButtonDimensions(evt.target))
 	}
-
-	const onMouseLeaveEvt = () => {
+	
+	const onMouseLeaveEvt = (evt) => {
 		setShowToolTip(false)
+		setButtonDimensions({left: null, top: null})
 	}
 
 	useEffect(() => {
-		setToolTipDimensions({ 
-			left: showToolTip ? GetButtonDimensions().width : null, 
-			top: showToolTip ? CalculateToolTipCentering(GetButtonDimensions, GetToolTipDimensions) : null
-		})
 
-		console.log(CalculateToolTipCentering(GetButtonDimensions, {height: ToolTipArrowSize, width: ToolTipArrowSize}))
-
-		setArrowDimensions({ 
-			left: showToolTip ? GetButtonDimensions().width : null, 
-			top: showToolTip ? CalculateToolTipCentering(GetButtonDimensions, {height: ToolTipArrowSize, width: ToolTipArrowSize}) : null
-		})
+		setToolTipDimensions( showToolTip ? CalculateToolTipCentering(buttonDimensions, GetToolTipDimensions, 10) : { left: null, width: null} )
+		setArrowDimensions( showToolTip ? CalculateToolTipCentering(buttonDimensions, {height: ToolTipArrowSize, width: -4, right: GetContainerDimensions().right}, 0) : { left: null, width: null} )
 
 	}, [ showToolTip ])
 
 	return(
 		<Fragment>
 			{/* <div style={ToolTipWrapperStyles} ref={containerRef} onMouseEnter={consoleLog} onMouseLeave={consoleLog}> */}
-			<div style={ToolTipWrapperStyles} ref={containerRef} onMouseEnter={onMouseEnterEvt} onMouseLeave={onMouseLeaveEvt}>
-				{ children }
+			<div  ref={containerRef}>
+				{
+					children && Children.map(children, (child) => cloneElement(
+						child,
+						{
+							onMouseOver: (evt) => onMouseEnterEvt(evt),
+							onMouseOut: (evt) => onMouseLeaveEvt(evt)
+						}
+					))
+				}
 				{
 					showToolTip ? 
 					<Fragment>
@@ -141,20 +162,39 @@ const ToolTip = ({copy, children}) => {
 
 
 
-const Layout = () => {
+const Layout = ({Buttons}) => {
 	const LayoutStyles = {
 		display: 'flex',
 		justifyContent: 'center',
 		alignItems: 'center',
+		flexFlow: 'column',
 		width: '100vw',
 		height: '100vh'
+	}
+
+	const ButtonContainerStyles = {
+		flex: 'auto',
+		maxWidth: 150,
+		maxHeight: 200,
+		overflowX: 'hidden',
+		overflowY: 'scroll'
 	}
 
 	return (
 		<Fragment>
 			<div style={LayoutStyles}>
 				<ToolTip copy={'tooltip'}>
-					<CreateButton copy={'Button'}/>
+					<div style={ButtonContainerStyles}>
+						{
+							Buttons.map((button) => {
+								return(
+									<Fragment key={Math.random(10)}>
+										<CreateButton copy={`Button ${button}`}/>
+									</Fragment>
+								)
+							})
+						}
+					</div>
 				</ToolTip>
 			</div>
 		</Fragment>
@@ -165,21 +205,7 @@ const Layout = () => {
 function App() {
   return (
     <div className="App">
-			<Layout />
-      {/* <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header> */}
+			<Layout Buttons={[1,2,3,4,5,6,7,8,9,10]}/>
     </div>
   );
 }
